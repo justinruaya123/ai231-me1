@@ -1,0 +1,13 @@
+# One command installs everything (torch/torchvision come from the PyTorch index):
+#
+#   uv pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu130
+#
+# CPU-only machine? Replace the first two pins with plain `torch` and `torchvision`
+# and install without the extra index.
+torch==2.13.0+cu130
+torchvision==0.28.0+cu130
+einops==0.8.2
+plotly==7.0.0
+nbformat==5.11.1
+nbclient==0.11.0
+ipykernel==7.3.0

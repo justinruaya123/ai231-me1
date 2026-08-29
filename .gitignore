@@ -1,0 +1,17 @@
+# virtual environment (uv)
+.venv/
+venv/
+
+# python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# notebook artifacts
+.ipynb_checkpoints/
+
+# downloaded data
+data/
