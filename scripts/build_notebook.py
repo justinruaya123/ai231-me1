@@ -99,9 +99,8 @@ import sys
 import time
 
 import einops
-import plotly
-import plotly.graph_objects as go
-import plotly.subplots as plotly_subplots
+import matplotlib
+import matplotlib.pyplot as plt
 import torch
 import torch.utils.data
 import torchvision
@@ -119,7 +118,7 @@ print("python     :", sys.version.split()[0])
 print("torch      :", torch.__version__, "| cuda build:", torch.version.cuda)
 print("torchvision:", torchvision.__version__)
 print("einops     :", einops.__version__)
-print("plotly     :", plotly.__version__)
+print("matplotlib :", matplotlib.__version__)
 print("device     :", device)
 if device.type == "cuda":
     print("gpu        :", torch.cuda.get_device_name(0))
@@ -544,14 +543,17 @@ md('''
 ## 7. Figures
 
 1. **Training history** - the sample-weighted raw NLL and the accuracy over the five
-   epochs, with labeled axes and hover details.
+   epochs, as two line plots with labeled axes.
 2. **16 sampled test images** - after evaluation, 16 unique test indices are drawn
    with a fixed seed (`SEED + 1`); those exact tensors are run through the final
-   model to obtain their predictions. Each cell is a grayscale heatmap on the shared
-   `[0, 1]` intensity range, with hidden color bars, square pixels, a reversed
-   y-axis (image row 0 on top), and no tick labels. Titles read
+   model to obtain their predictions. Each cell is a grayscale image on the shared
+   `[0, 1]` intensity range, with no color bars, square pixels, image row 0 on top,
+   and no tick labels. Titles read
    `GT: <label> | Pred: <label>`, and a red title marks a wrong prediction.
    Normalization is inverted (`x * 0.3081 + 0.1307`) for display only.
+
+Both figures are Matplotlib figures captured as inline PNG images, so they render
+directly in GitHub's notebook preview.
 ''')
 
 code('''
@@ -559,37 +561,22 @@ epochs = [record["epoch"] for record in history]
 losses = [record["train_loss"] for record in history]
 accuracies = [record["train_accuracy"] for record in history]
 
-history_figure = plotly_subplots.make_subplots(
-    rows=1, cols=2, subplot_titles=["Training loss", "Training accuracy"]
-)
-history_figure.add_trace(
-    go.Scatter(
-        x=epochs,
-        y=losses,
-        mode="lines+markers",
-        name="loss",
-        hovertemplate="epoch %{x}<br>loss %{y:.4f}<extra></extra>",
-    ),
-    row=1,
-    col=1,
-)
-history_figure.add_trace(
-    go.Scatter(
-        x=epochs,
-        y=accuracies,
-        mode="lines+markers",
-        name="accuracy",
-        hovertemplate="epoch %{x}<br>accuracy %{y:.4f}<extra></extra>",
-    ),
-    row=1,
-    col=2,
-)
-history_figure.update_layout(title_text="Training history - 5 epochs, Adam 3e-3 -> 5e-4", height=380)
-history_figure.update_xaxes(title_text="epoch", row=1, col=1)
-history_figure.update_xaxes(title_text="epoch", row=1, col=2)
-history_figure.update_yaxes(title_text="sample-weighted mean loss (raw NLL)", row=1, col=1)
-history_figure.update_yaxes(title_text="sample-weighted accuracy (augmented)", row=1, col=2)
-history_figure.show()
+history_fig, (loss_ax, accuracy_ax) = plt.subplots(1, 2, figsize=(10, 3.2))
+loss_ax.plot(epochs, losses, marker="o")
+loss_ax.set_title("Training loss")
+loss_ax.set_xlabel("epoch")
+loss_ax.set_ylabel("sample-weighted mean loss (raw NLL)")
+loss_ax.set_xticks(epochs)
+
+accuracy_ax.plot(epochs, accuracies, marker="o")
+accuracy_ax.set_title("Training accuracy")
+accuracy_ax.set_xlabel("epoch")
+accuracy_ax.set_ylabel("sample-weighted accuracy (augmented)")
+accuracy_ax.set_xticks(epochs)
+
+history_fig.suptitle("Training history - 5 epochs, Adam 3e-3 -> 5e-4")
+history_fig.tight_layout(rect=(0, 0, 1, 0.94))
+plt.show()
 ''')
 
 code('''
@@ -603,49 +590,26 @@ sample_predictions = sample_logits.argmax(dim=1)
 sample_targets = test_targets[sample_indices]
 
 sample_images = (sample_images_norm * MNIST_STD + MNIST_MEAN).clamp(0.0, 1.0)
-sample_images_hw = rearrange(sample_images, "b 1 h w -> b h w")
+sample_images_hw = rearrange(sample_images, "b 1 h w -> b h w").cpu().numpy()
 
-titles = [
-    f"GT: {int(sample_targets[i])} | Pred: {int(sample_predictions[i])}" for i in range(16)
-]
-
-grid_figure = plotly_subplots.make_subplots(rows=4, cols=4, subplot_titles=titles)
-for i in range(16):
-    row, col = divmod(i, 4)
-    grid_figure.add_trace(
-        go.Heatmap(
-            z=sample_images_hw[i].cpu().tolist(),
-            zmin=0.0,
-            zmax=1.0,
-            colorscale="Gray",
-            showscale=False,
-            xgap=0,
-            ygap=0,
-            name="",
-        ),
-        row=row + 1,
-        col=col + 1,
+grid_fig, grid_axes = plt.subplots(4, 4, figsize=(10, 10))
+for i, ax in enumerate(grid_axes.ravel()):
+    ax.imshow(sample_images_hw[i], cmap="gray", vmin=0.0, vmax=1.0)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal")
+    wrong = int(sample_targets[i]) != int(sample_predictions[i])
+    ax.set_title(
+        f"GT: {int(sample_targets[i])} | Pred: {int(sample_predictions[i])}",
+        color="red" if wrong else "black",
     )
 
-for axis in range(1, 17):
-    x_id = "x" if axis == 1 else f"x{axis}"
-    y_id = "y" if axis == 1 else f"y{axis}"
-    grid_figure.update_xaxes(selector=x_id, scaleanchor=y_id, scaleratio=1, showticklabels=False)
-    grid_figure.update_yaxes(selector=y_id, autorange="reversed", showticklabels=False)
-
-for i, annotation in enumerate(grid_figure.layout.annotations):
-    if int(sample_targets[i]) != int(sample_predictions[i]):
-        annotation.font.color = "red"
-
-grid_figure.update_layout(
-    title_text=(
-        f"16 sampled MNIST test images - final test accuracy "
-        f"{100.0 * float(test_accuracy):.2f}% (5 epochs)"
-    ),
-    height=950,
-    width=950,
+grid_fig.suptitle(
+    f"16 sampled MNIST test images - final test accuracy "
+    f"{100.0 * float(test_accuracy):.2f}% (5 epochs)"
 )
-grid_figure.show()
+grid_fig.tight_layout(rect=(0, 0, 1, 0.97))
+plt.show()
 ''')
 
 # ---------------------------------------------------------------- 9. validate

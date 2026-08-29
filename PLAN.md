@@ -9,7 +9,7 @@ Create one reproducible, executed Jupyter notebook, `mnist_einops_einsum_cnn.ipy
 - does not use PyTorch CNN, MLP, pooling, flattening, or loss layers;
 - trains on the official MNIST training split for exactly 5 epochs;
 - evaluates once on all 10,000 examples in the official test split and reports the measured accuracy; and
-- displays 16 sampled test images in a Plotly 4 x 4 grid, with ground-truth and predicted labels on every image.
+- displays 16 sampled test images in a Matplotlib 4 x 4 grid, with ground-truth and predicted labels on every image.
 
 ## Constraint interpretation
 
@@ -75,7 +75,7 @@ Weights will use a reproducible Kaiming-style random initialization computed fro
 
 - State the goal, the exact definition of the three layers, and the allowed/prohibited operations.
 - Link the two basis notebooks.
-- Import only the necessary packages: PyTorch/torchvision, `einops`, Plotly, and standard-library utilities.
+- Import only the necessary packages: PyTorch/torchvision, `einops`, Matplotlib, and standard-library utilities.
 - Fix Python and PyTorch seeds and create a seeded data-loader generator.
 - Select CUDA when available and otherwise use CPU; print the device and package versions.
 - Keep `num_workers=0` so the notebook behaves consistently on Windows and in hosted notebook environments.
@@ -129,14 +129,14 @@ The checks will not use a PyTorch CNN/MLP implementation as a hidden reference p
 - Display the final test accuracy as both a fraction and percentage, alongside the evaluated sample count and the fixed epoch count.
 - Report the measured result as-is. Do not hard-code or pre-claim an accuracy value; if the result is unexpectedly low, diagnose the implementation while retaining the five-epoch requirement and then rerun the notebook from a clean kernel.
 
-### 7. Plotly outputs
+### 7. Matplotlib outputs
 
-All figures in the notebook will be Plotly figures; Matplotlib and Seaborn will not be imported.
+All figures in the notebook will be Matplotlib figures captured as inline PNG images, so they render in GitHub's notebook preview without an external GUI.
 
-- Plot a compact epoch-history figure for training loss and training accuracy, with labeled axes and hover details.
+- Plot a compact epoch-history figure for training loss and training accuracy, as a 1 x 2 panel of line plots with labeled axes.
 - Select 16 unique test indices with a fixed random seed after evaluation.
-- Run those exact tensors through the final model and construct a 4 x 4 `plotly.subplots.make_subplots` grid.
-- Render each digit as a grayscale `go.Heatmap` with a shared `[0, 1]` intensity range, hidden color bars, equal aspect ratio, reversed image y-axes, and no tick labels.
+- Run those exact tensors through the final model and construct a 4 x 4 `plt.subplots(4, 4)` grid.
+- Render each digit as a grayscale `plt.imshow` image with a shared `[0, 1]` intensity range, no color bars, equal aspect ratio, image row 0 on top, and no tick labels.
 - Title every cell `GT: <label> | Pred: <label>` and visually distinguish incorrect predictions without hiding them or resampling.
 - Give the figure a clear overall title containing the final test accuracy.
 
@@ -146,13 +146,13 @@ All figures in the notebook will be Plotly figures; Matplotlib and Seaborn will 
 - Confirm there are no execution errors, stale counters, or results from a different run.
 - Search notebook code cells for every prohibited layer/helper and opaque layout operation listed above.
 - Confirm the history has exactly five epochs, the final evaluation count is 10,000, and the sampled grid has exactly 16 unique examples arranged 4 x 4.
-- Confirm every displayed figure is Plotly-based and usable inline without an external GUI.
+- Confirm every displayed figure is a Matplotlib PNG visible inline without an external GUI.
 - Run a notebook-format validation and a whitespace/diff check before handoff.
 
 ## Planned deliverables
 
-1. `mnist_einops_einsum_cnn.ipynb` — the fully executed narrative, implementation, training report, and Plotly figures.
-2. A minimal dependency declaration if the environment does not already provide a reproducible notebook stack; it will include only PyTorch, torchvision, einops, Plotly, Jupyter, and notebook validation support.
+1. `mnist_einops_einsum_cnn.ipynb` — the fully executed narrative, implementation, training report, and Matplotlib figures.
+2. A minimal dependency declaration if the environment does not already provide a reproducible notebook stack; it will include only PyTorch, torchvision, einops, Matplotlib, Jupyter, and notebook validation support.
 
 Large downloaded MNIST files and transient notebook checkpoints will remain outside version control.
 
@@ -164,5 +164,5 @@ Large downloaded MNIST files and transient notebook checkpoints will remain outs
 - [ ] No prohibited model, loss, pooling, unfold, or opaque reshaping helper appears in executable cells.
 - [ ] Training completes exactly 5 epochs on MNIST's official training split.
 - [ ] Accuracy is measured over and reported for all 10,000 official test images.
-- [ ] Sixteen unique sampled test images appear in a Plotly 4 x 4 grid with both GT and prediction.
-- [ ] All figures are Plotly figures and all requested outputs are visible inside the saved notebook.
+- [ ] Sixteen unique sampled test images appear in a Matplotlib 4 x 4 grid with both GT and prediction.
+- [ ] All figures are Matplotlib figures and all requested outputs are visible inside the saved notebook.

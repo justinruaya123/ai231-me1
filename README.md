@@ -9,7 +9,8 @@ test accuracy (9,904 / 10,000).
 Every learned contraction is an explicit `torch.einsum` equation and every tensor
 layout change or reduction is a named-axis `einops` operation. Parameters are plain
 leaf tensors in a dictionary, optimized directly with `torch.optim.Adam`. All figures
-are Plotly. The notebook was authored with QWEN 3.8 via opencode.
+are Matplotlib PNG images, which render directly in GitHub's notebook preview. The
+notebook was authored with QWEN 3.8 via opencode.
 
 ## Libraries
 
@@ -19,7 +20,7 @@ are Plotly. The notebook was authored with QWEN 3.8 via opencode.
 | PyTorch      | 2.13.0+cu130 | tensors, autograd, CUDA       |
 | torchvision  | 0.28.0+cu130 | MNIST data loading            |
 | einops       | 0.8.2        | named-axis layouts/reductions |
-| Plotly       | 7.0.0        | figures                       |
+| matplotlib   | 3.11.1       | figures                       |
 | nbformat     | 5.11.1       | notebook format               |
 | nbclient     | 0.11.0       | notebook execution            |
 | ipykernel    | 7.3.0        | Jupyter kernel                |

@@ -32,6 +32,16 @@ md_cells = [cell for cell in nb.cells if cell.cell_type == "markdown"]
 code = "\n".join(cell.source for cell in code_cells)
 all_source = "\n".join(cell.source for cell in nb.cells)
 
+# numpy is allowed in the figures section (plotting only), never in model code
+model_code_parts = []
+in_figures = False
+for cell in nb.cells:
+    if cell.cell_type == "markdown" and "## 7. Figures" in cell.source:
+        in_figures = True
+    elif cell.cell_type == "code" and not in_figures:
+        model_code_parts.append(cell.source)
+model_code = "\n".join(model_code_parts)
+
 output_parts = []
 for cell in code_cells:
     for output in cell.get("outputs", []):
@@ -51,15 +61,16 @@ forbidden_patterns = {
     "softmax token": r"\bsoftmax\b",
     "relu helper": r"torch\.relu|F\.relu|nn\.ReLU",
     "opaque layout op": r"\.(view|reshape|flatten|permute|transpose|squeeze|unsqueeze)\(",
-    "numpy": r"\bnumpy\b|\bnp\.",
+    "numpy in model cells": r"\bnumpy\b|\bnp\.",
 }
 for label, pattern in forbidden_patterns.items():
-    matches = list(re.finditer(pattern, code))
+    scope = model_code if label == "numpy in model cells" else code
+    matches = list(re.finditer(pattern, scope))
     details = []
     for match in matches:
-        start = code.rfind("\n", 0, match.start()) + 1
-        end = code.find("\n", match.end())
-        details.append(code[start:end if end != -1 else len(code)].strip())
+        start = scope.rfind("\n", 0, match.start()) + 1
+        end = scope.find("\n", match.end())
+        details.append(scope[start:end if end != -1 else len(scope)].strip())
     check(f"no prohibited: {label}", not matches, "; ".join(details))
 
 # 2) required primitives present
@@ -73,6 +84,7 @@ required_patterns = {
     "no_grad evaluation": r"torch\.no_grad\(\)",
     "exactly five epochs": r"for epoch in range\(1, 6\):",
     "named-axis logits conversion": r'rearrange\(h3, "b classes 1 1 -> b classes"\)',
+    "matplotlib import": r"import matplotlib\.pyplot as plt",
 }
 for label, pattern in required_patterns.items():
     check(f"required present: {label}", re.search(pattern, code) is not None)
@@ -108,22 +120,32 @@ check("final accuracy over 10000 examples", accuracy_match is not None and "test
 if accuracy_match:
     print(f"       measured test accuracy: {accuracy_match.group(2)}%")
 
+def png_size(output):
+    from base64 import b64decode
+    from io import BytesIO
+
+    from PIL import Image
+    image = Image.open(BytesIO(b64decode(output["data"]["image/png"])))
+    return image.width, image.height
+
+
 figures = [o for cell in code_cells for o in cell.get("outputs", [])
            if o.get("output_type") == "display_data"
-           and "application/vnd.plotly.v1+json" in o.get("data", {})]
-check("plotly figures saved in notebook", len(figures) >= 2, f"found {len(figures)}")
+           and "image/png" in o.get("data", {})]
+check("matplotlib figures saved in notebook", len(figures) >= 2, f"found {len(figures)}")
 
-heatmap_traces = 0
-grid_title_ok = False
-for figure in figures:
-    payload = figure["data"]["application/vnd.plotly.v1+json"]
-    traces = payload.get("data", [])
-    heatmaps = [t for t in traces if t.get("type") == "heatmap"]
-    heatmap_traces = max(heatmap_traces, len(heatmaps))
-    if len(heatmaps) == 16 and "final test accuracy" in payload.get("layout", {}).get("title", {}).get("text", ""):
-        grid_title_ok = True
-check("4x4 grid has 16 heatmaps", heatmap_traces == 16, f"found {heatmap_traces}")
-check("grid title carries final accuracy", grid_title_ok)
+aspect_ratios = [width / height for width, height in map(png_size, figures)] if figures else []
+check("history figure rendered as a wide 1x2 panel", any(ratio > 2.0 for ratio in aspect_ratios))
+check("grid figure rendered as a square 4x4 panel", any(0.9 <= ratio <= 1.1 for ratio in aspect_ratios))
+
+grid_cell = next((cell for cell in code_cells if "plt.subplots(4, 4" in cell.source), None)
+check("4x4 grid cell present", grid_cell is not None)
+if grid_cell is not None:
+    grid_pngs = [o for o in grid_cell.get("outputs", [])
+                 if o.get("output_type") == "display_data" and "image/png" in o.get("data", {})]
+    check("grid cell produced a PNG", len(grid_pngs) >= 1, f"found {len(grid_pngs)}")
+check("grid title carries final accuracy",
+      grid_cell is not None and "final test accuracy" in grid_cell.source and "test_accuracy" in grid_cell.source)
 
 print()
 if failures:
